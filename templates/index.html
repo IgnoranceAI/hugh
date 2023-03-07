@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html data-bs-theme="dark">
+<head>
+    <title>Ask {{voice}}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .audio-player {
+            margin-top: 20px;
+            margin-bottom: 40px;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://unpkg.com/typeit@8.7.1/dist/index.umd.js"></script>
+</head>
+<body>
+    <div class="container text-center mt-5">
+        <div class="row">
+            <div class="col-12 col-md-6 col-xl-4 mx-auto">
+                <img class="mb-3" src="/static/hugh.png" alt="" style="height:250px">
+                <h1 class="mb-4">Ask {{voice}}</h1>
+                <form>
+                    <div class="form-group mb-3">
+                        <textarea id="transcription-box" class="form-control" rows="3" placeholder="Type a question or press record."></textarea>
+                    </div>
+                    <div class="form-group d-flex justify-content-between">
+                        <button type="button" class="btn btn-danger" style="width:48%" id="record-button">Record</button>
+                        <button type="button" class="btn btn-primary" style="width:48%" id="ask-button">Ask</button>
+                    </div>
+                </form>
+                <div class="audio-player">
+                    <audio id="audio-element"></audio>
+                </div>
+                <div class="response">
+                    <p id="response-text"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        $(document).ready(() => {
+            // Get references to HTML elements
+            const recordButton = $('#record-button');
+            const transcriptionBox = $('#transcription-box');
+            const askButton = $('#ask-button');
+            const audioElement = $('#audio-element')[0];
+
+            // Helper methods
+            const disableButton = (btn) => { btn.addClass("loading").prop("disabled", true); }
+            const enableButton = (btn) => { btn.removeClass("loading").prop("disabled", false); }
+
+            // Initialize TypeIt
+            new TypeIt("#response-text", {
+              strings: "How can I help?",
+              speed: 40,
+              waitUntilVisible: true,
+              cursorChar: "▊",
+            }).go();
+
+            // Ask question and play audio when ask button is clicked
+            askButton.click(() => {
+                disableButton(recordButton);
+                disableButton(askButton);
+                askButton[0].innerHTML = "Thinking...";
+
+                const textData = { text: transcriptionBox.val() };
+                $.ajax({
+                    type: 'POST',
+                    url: '/ask',
+                    data: JSON.stringify(textData),
+                    contentType: 'application/json',
+                    success: (data) => {
+                        const fileURL = data.audio;
+                        $("#response-text")[0].innerHTML = "";
+                        new TypeIt("#response-text", {
+                          strings: data.text,
+                          speed: 40,
+                          waitUntilVisible: true,
+                          cursorChar: "▊",
+                        }).go();
+                        audioElement.src = fileURL;
+                        audioElement.controls = true;
+                        audioElement.play();
+                        enableButton(recordButton);
+                        enableButton(askButton);
+                        askButton[0].innerHTML = "Ask";
+                    }
+                });
+            });
+
+
+            // Initialize MediaRecorder
+            let chunks = [];
+            let recording = false;
+            let mediaRecorder;
+            navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = (event) => {
+                    chunks.push(event.data);
+                };
+                mediaRecorder.onstop = () => {
+                    disableButton(recordButton);
+                    recordButton[0].innerHTML = "Transcribing...";
+                    const audioData = new Blob(chunks, { type: 'audio/wav' });
+                    const formData = new FormData();
+                    formData.append('file', audioData, 'audio.wav');
+                    $.ajax({
+                        type: 'POST',
+                        url: '/transcribe',
+                        data: formData,
+                        contentType: false,
+                        processData: false,
+                        success: (data) => {
+                            transcriptionBox.val(data.text);
+                            enableButton(recordButton);
+                            recordButton[0].innerHTML = "Record";
+                            askButton.click();
+                        }
+                    });
+                };
+            });
+
+            // Record audio when record button is clicked
+            recordButton.click(() => {
+                if (recording) {
+                    mediaRecorder.stop();
+                    recording = false;
+                } else {
+                    recordButton[0].innerHTML = "Recording...";
+                    chunks = [];
+                    mediaRecorder.start();
+                    recording = true;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
