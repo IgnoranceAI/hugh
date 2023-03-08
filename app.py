@@ -138,11 +138,11 @@ def listen(filename):
     return send_file(f"outputs/{filename}", mimetype="audio/mp3", as_attachment=False)
 
 
-if __name__ == '__main__':
-    app.run()
-
 if ELEVENLABS_API_KEY:
     if not ELEVENLABS_ALL_VOICES:
         ELEVENLABS_ALL_VOICES = get_voices()
     if not ELEVENLABS_VOICE_NAME:
         ELEVENLABS_VOICE_NAME = ELEVENLABS_ALL_VOICES[0]["name"]
+
+if __name__ == '__main__':
+    app.run()
