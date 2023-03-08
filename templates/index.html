@@ -45,6 +45,7 @@
             const transcriptionBox = $('#transcription-box');
             const askButton = $('#ask-button');
             const audioElement = $('#audio-element')[0];
+            const conversation = [];
 
             // Helper methods
             const disableButton = (btn) => { btn.addClass("loading").prop("disabled", true); }
@@ -63,8 +64,8 @@
                 disableButton(recordButton);
                 disableButton(askButton);
                 askButton[0].innerHTML = "Thinking...";
-
-                const textData = { text: transcriptionBox.val() };
+                conversation.push({role: "user", "content": transcriptionBox.val()})
+                const textData = { conversation: conversation };
                 $.ajax({
                     type: 'POST',
                     url: '/ask',
@@ -73,10 +74,11 @@
                     success: (data) => {
                         const fileURL = data.audio;
                         $("#response-text")[0].innerHTML = "";
+                        conversation.push({role: "assistant", "content": data.text})
                         new TypeIt("#response-text", {
                           strings: data.text,
-                          speed: 40,
-                          waitUntilVisible: true,
+                          speed: 39,
+                          waitUntilVisible: false,
                           cursorChar: "▊",
                         }).go();
                         audioElement.src = fileURL;

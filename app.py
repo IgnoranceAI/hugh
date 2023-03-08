@@ -49,10 +49,10 @@ def transcribe_audio(filename: str) -> str:
     return transcript.text
 
 
-def generate_reply(text: str) -> str:
+def generate_reply(conversation: list) -> str:
     """Generate a ChatGPT response.
 
-    :param text: The user prompt.
+    :param conversation: A list of previous user and assistant messages.
     :returns: The ChatGPT response.
     :rtype: str
 
@@ -61,8 +61,7 @@ def generate_reply(text: str) -> str:
       model="gpt-3.5-turbo",
       messages=[
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": text},
-        ]
+        ] + conversation
     )
     return response["choices"][0]["message"]["content"]
 
@@ -123,9 +122,9 @@ def transcribe():
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    """Generate a ChatGPT response from the given text, then convert it to audio using ElevenLabs."""
-    text = request.get_json(force=True).get("text", "")
-    reply = generate_reply(text)
+    """Generate a ChatGPT response from the given conversation, then convert it to audio using ElevenLabs."""
+    conversation = request.get_json(force=True).get("conversation", "")
+    reply = generate_reply(conversation)
     reply_file = f"{uuid.uuid4()}.mp3"
     reply_path = f"outputs/{reply_file}"
     os.makedirs(os.path.dirname(reply_path), exist_ok=True)
