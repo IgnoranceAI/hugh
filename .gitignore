@@ -1,3 +1,7 @@
+# Ignore uploads and outputs
+uploads/
+outputs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

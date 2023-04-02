@@ -5,17 +5,16 @@ import uuid
 from flask import Flask, request, jsonify, send_file, render_template
 
 
-# Add your OpenAI API key
-OPENAI_API_KEY = ""
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 
 # Add your ElevenLabs API key
-ELEVENLABS_API_KEY = ""
+ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
 ELEVENLABS_VOICE_STABILITY = 0.30
 ELEVENLABS_VOICE_SIMILARITY = 0.75
 
 # Choose your favorite ElevenLabs voice
-ELEVENLABS_VOICE_NAME = "Hugh"
+ELEVENLABS_VOICE_NAME = "Bella"
 ELEVENLABS_ALL_VOICES = []
 
 app = Flask(__name__)
