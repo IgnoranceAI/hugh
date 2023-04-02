@@ -1,43 +1,55 @@
 <!DOCTYPE html>
 <html data-bs-theme="dark">
-<head>
-    <title>Ask {{voice}}</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .audio-player {
-            margin-top: 20px;
-            margin-bottom: 40px;
-        }
-    </style>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://unpkg.com/typeit@8.7.1/dist/index.umd.js"></script>
-</head>
-<body>
-    <div class="container text-center mt-5">
-        <div class="row">
-            <div class="col-12 col-md-6 col-xl-4 mx-auto">
-                <img class="mb-3" src="/static/hugh.png" alt="" style="height:250px">
-                <h1 class="mb-4">Ask {{voice}}</h1>
-                <form>
-                    <div class="form-group mb-3">
-                        <textarea id="transcription-box" class="form-control" rows="3" placeholder="Type a question or press record."></textarea>
+    <head>
+        <title>Ask {{voice}}</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            .audio-player {
+                margin-top: 20px;
+                margin-bottom: 40px;
+            }
+            .voices-container {
+                display: inline-block;
+                margin-bottom: 20px;
+            }
+        </style>
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script src="https://unpkg.com/typeit@8.7.1/dist/index.umd.js"></script>
+    </head>
+    <body>
+        <div class="container text-center mt-5">
+            <div class="row">
+                <div class="col-12 col-md-6 col-xl-4 mx-auto">
+                    <img class="mb-3" src="/static/hugh.png" alt="" style="height:250px">
+                    <h1 class="mb-4">Ask {{voice}}</h1>
+                    <div class="voices-container">
+                        <span>Select Voice:</span>
+                        <select id="voices-select">
+                            {% for voice in voices %}
+                            <option value="{{ voice.name }}" {% if voice.name == selected_voice %}selected{% endif %}>{{ voice.name}}</option>
+                            {% endfor %}
+                        </select>
                     </div>
-                    <div class="form-group d-flex justify-content-between">
-                        <button type="button" class="btn btn-danger" style="width:48%" id="record-button">Record</button>
-                        <button type="button" class="btn btn-primary" style="width:48%" id="ask-button">Ask</button>
+                    <form>
+                        <div class="form-group mb-3">
+                            <textarea id="transcription-box" class="form-control" rows="3" placeholder="Type a question or press record."></textarea>
+                        </div>
+                        <div class="form-group d-flex justify-content-between">
+                            <button type="button" class="btn btn-danger" style="width:48%" id="record-button">Record</button>
+                            <button type="button" class="btn btn-primary" style="width:48%" id="ask-button">Ask</button>
+                        </div>
+                    </form>
+                    <div class="audio-player">
+                        <audio id="audio-element"></audio>
                     </div>
-                </form>
-                <div class="audio-player">
-                    <audio id="audio-element"></audio>
-                </div>
-                <div class="response">
-                    <p id="response-text"></p>
+                    <div class="response">
+                        <p id="response-text"></p>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
     <script>
         $(document).ready(() => {
             // Get references to HTML elements
@@ -61,11 +73,21 @@
 
             // Ask question and play audio when ask button is clicked
             askButton.click(() => {
+                // Disable buttons and set the ask button's text to "Thinking..."
                 disableButton(recordButton);
                 disableButton(askButton);
                 askButton[0].innerHTML = "Thinking...";
-                conversation.push({role: "user", "content": transcriptionBox.val()})
-                const textData = { conversation: conversation };
+
+                // Get the selected voice name
+                const voiceName = $("#voices-select").val();
+
+                // Add the user's message to the conversation
+                conversation.push({role: "user", "content": transcriptionBox.val()});
+
+                // Prepare data to send with the request
+                const textData = { conversation: conversation, voice_name: voiceName };
+
+                // Make a POST request to the /ask endpoint with the conversation and voice name
                 $.ajax({
                     type: 'POST',
                     url: '/ask',
@@ -73,24 +95,31 @@
                     contentType: 'application/json',
                     success: (data) => {
                         const fileURL = data.audio;
+
+                        // Clear the response text and add the assistant's response to the conversation
                         $("#response-text")[0].innerHTML = "";
-                        conversation.push({role: "assistant", "content": data.text})
+                        conversation.push({role: "assistant", "content": data.text});
+
+                        // Type the assistant's response with TypeIt
                         new TypeIt("#response-text", {
-                          strings: data.text,
-                          speed: 39,
-                          waitUntilVisible: false,
-                          cursorChar: "▊",
+                            strings: data.text,
+                            speed: 39,
+                            waitUntilVisible: false,
+                            cursorChar: "▊",
                         }).go();
+
+                        // Play the audio response
                         audioElement.src = fileURL;
                         audioElement.controls = true;
                         audioElement.play();
+
+                        // Enable buttons and reset the ask button's text
                         enableButton(recordButton);
                         enableButton(askButton);
                         askButton[0].innerHTML = "Ask";
                     }
                 });
             });
-
 
             // Initialize MediaRecorder
             let chunks = [];
