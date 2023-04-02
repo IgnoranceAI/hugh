@@ -4,17 +4,21 @@ import requests
 import uuid
 from flask import Flask, request, jsonify, send_file, render_template
 
-
+# Set API Keys using environment variables
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
+
+# Uncomment the following lines to hardcode API keys
+# OPENAI_API_KEY = ""
+# ELEVENLABS_API_KEY = ""
+
 openai.api_key = OPENAI_API_KEY
 
-# Add your ElevenLabs API key
-ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
 ELEVENLABS_VOICE_STABILITY = 0.30
 ELEVENLABS_VOICE_SIMILARITY = 0.75
 
 # Choose your favorite ElevenLabs voice
-ELEVENLABS_VOICE_NAME = "Bella"
+ELEVENLABS_VOICE_NAME = "Hugh"
 ELEVENLABS_ALL_VOICES = []
 
 app = Flask(__name__)
@@ -65,11 +69,13 @@ def generate_reply(conversation: list) -> str:
     return response["choices"][0]["message"]["content"]
 
 
-def generate_audio(text: str, output_path: str = "") -> str:
-    """Converts
+def generate_audio(text: str, voice_name: str, output_path: str = "") -> str:
+    """Converts text to audio.
 
     :param text: The text to convert to audio.
     :type text : str
+    :param voice_name: The name of the voice to use.
+    :type voice_name : str
     :param output_path: The location to save the finished mp3 file.
     :type output_path: str
     :returns: The output path for the successfully saved file.
@@ -78,9 +84,10 @@ def generate_audio(text: str, output_path: str = "") -> str:
     """
     voices = ELEVENLABS_ALL_VOICES
     try:
-        voice_id = next(filter(lambda v: v["name"] == ELEVENLABS_VOICE_NAME, voices))["voice_id"]
+        voice_id = next(filter(lambda v: v["name"] == voice_name, voices))["voice_id"]
     except StopIteration:
         voice_id = voices[0]["voice_id"]
+
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     headers = {
         "xi-api-key": ELEVENLABS_API_KEY,
@@ -94,16 +101,16 @@ def generate_audio(text: str, output_path: str = "") -> str:
         }
     }
     response = requests.post(url, json=data, headers=headers)
+
     with open(output_path, "wb") as output:
         output.write(response.content)
-    return output_path
 
+    return output_path
 
 @app.route('/')
 def index():
     """Render the index page."""
-    return render_template('index.html', voice=ELEVENLABS_VOICE_NAME)
-
+    return render_template('index.html', voices=ELEVENLABS_ALL_VOICES, selected_voice=ELEVENLABS_VOICE_NAME)
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
@@ -122,14 +129,15 @@ def transcribe():
 @app.route('/ask', methods=['POST'])
 def ask():
     """Generate a ChatGPT response from the given conversation, then convert it to audio using ElevenLabs."""
-    conversation = request.get_json(force=True).get("conversation", "")
+    input_data = request.get_json(force=True)
+    conversation = input_data.get("conversation", "")
+    voice_name = input_data.get("voice_name", ELEVENLABS_VOICE_NAME)
     reply = generate_reply(conversation)
     reply_file = f"{uuid.uuid4()}.mp3"
     reply_path = f"outputs/{reply_file}"
     os.makedirs(os.path.dirname(reply_path), exist_ok=True)
-    generate_audio(reply, output_path=reply_path)
+    generate_audio(text=reply, voice_name=voice_name, output_path=reply_path)
     return jsonify({'text': reply, 'audio': f"/listen/{reply_file}"})
-
 
 @app.route('/listen/<filename>')
 def listen(filename):
